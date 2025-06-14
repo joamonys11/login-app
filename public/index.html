@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Simple Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        h2 { text-align: center; margin-bottom: 2rem; color: #333; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .message { margin-top: 1rem; text-align: center; }
+        .success { background: #d4edda; padding: 1rem; border-radius: 5px; color: #155724; }
+        .error { background: #f8d7da; padding: 1rem; border-radius: 5px; color: #721c24; }
+        .sql-preview {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 1rem;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Login</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" required />
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" required />
+            </div>
+            <button type="submit" class="login-btn">Login</button>
+        </form>
+        <div id="message" class="message"></div>
+        <div id="sqlPreview" class="sql-preview" style="display: none;"></div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const messageDiv = document.getElementById('message');
+            const sqlPreview = document.getElementById('sqlPreview');
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    messageDiv.innerHTML = '<div class="success">✅ Login successful! Welcome, ' + result.user.username + '!</div>';
+                } else {
+                    messageDiv.innerHTML = '<div class="error">❌ ' + result.message + '</div>';
+                }
+
+                sqlPreview.textContent = "SQL Query: SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "'";
+                sqlPreview.style.display = 'block';
+
+            } catch (error) {
+                console.error('Login failed:', error);
+                messageDiv.innerHTML = '<div class="error">❌ Server error</div>';
+            }
+        });
+    </script>
+</body>
+</html>
