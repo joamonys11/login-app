@@ -1,16 +1,30 @@
 {
-  "name": "login-app",
+  "name": "mariadb-login-app",
   "version": "1.0.0",
+  "description": "A secure login application with MariaDB integration",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "setup": "node setup.js"
   },
   "dependencies": {
-    "bcrypt": "^5.1.0",
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
     "express": "^4.18.2",
-    "mysql2": "^3.3.3"
-  }
+    "mariadb": "^3.2.2",
+    "bcrypt": "^5.1.1",
+    "express-session": "^1.17.3",
+    "express-rate-limit": "^7.1.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "mariadb",
+    "authentication",
+    "login"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
 }
