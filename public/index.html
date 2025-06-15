@@ -507,225 +507,138 @@
         </div>
     </div>
 
-    <script>
-        // Sample user data for demonstration
-        const userData = {
-            'admin': {
-                password: 'admin123',
-                name: 'Administrator',
-                age: 35,
-                email: 'admin@company.com',
-                study: 'Computer Science',
-                civil: 'Married',
-                avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
-                loginCount: 247,
-                daysActive: 89,
-                profileViews: 1543
-            },
-            'user': {
-                password: 'password',
-                name: 'Regular User',
-                age: 28,
-                email: 'user@company.com',
-                study: 'Business Administration',
-                civil: 'Single',
-                avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user',
-                loginCount: 156,
-                daysActive: 45,
-                profileViews: 892
-            },
-            'john': {
-                password: 'john123',
-                name: 'John Smith',
-                age: 32,
-                email: 'john.smith@company.com',
-                study: 'Engineering',
-                civil: 'Married',
-                avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john',
-                loginCount: 89,
-                daysActive: 23,
-                profileViews: 456
-            }
-        };
+<script>
+document.getElementById('loginForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
 
-        // Check if user is already authenticated
-        window.addEventListener('load', checkAuthStatus);
-        
-        function checkAuthStatus() {
-            const currentUser = localStorage.getItem('currentUser');
-            if (currentUser) {
-                loadUserProfile(JSON.parse(currentUser));
-            }
-        }
-        
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const messageDiv = document.getElementById('message');
-            const sqlPreview = document.getElementById('sqlPreview');
-            const loginBtn = document.getElementById('loginBtn');
-            const loginText = document.getElementById('loginText');
-            const loading = document.getElementById('loading');
-            
-            // Show loading state
-            loginBtn.disabled = true;
-            loginText.style.display = 'none';
-            loading.style.display = 'block';
-            
-            // Clear previous messages
-            messageDiv.innerHTML = '';
-            sqlPreview.style.display = 'none';
-            
-            // Show SQL preview for educational purposes
-            const sqlQuery = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
-            sqlPreview.innerHTML = `<strong>Generated SQL Query:</strong><br>${sqlQuery}`;
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const messageDiv = document.getElementById('message');
+    const sqlPreview = document.getElementById('sqlPreview');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginText = document.getElementById('loginText');
+    const loading = document.getElementById('loading');
+
+    // Show loading state
+    loginBtn.disabled = true;
+    loginText.style.display = 'none';
+    loading.style.display = 'block';
+
+    messageDiv.innerHTML = '';
+    sqlPreview.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            messageDiv.innerHTML = '<div class="message success">✅ Login successful! Redirecting to dashboard...</div>';
+            sqlPreview.innerHTML = `<strong>Executed SQL Query:</strong><br>${data.sqlPreview}`;
             sqlPreview.style.display = 'block';
-            
-            // Simulate API delay
-            try {
-    const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ username, password })
-    });
 
-    const data = await response.json();
-    
-    if (response.ok && data.success) {
-        messageDiv.innerHTML = '<div class="message success">✅ Login successful!</div>';
-        console.log('Logged in user:', data.user);
+            // Store session
+            localStorage.setItem('currentUser', JSON.stringify(data.user));
 
-        // Store session
-        localStorage.setItem('currentUser', JSON.stringify(data.user));
-
-        // Load dashboard with user info
-        loadUserProfile(data.user);
-
-        sqlPreview.innerHTML = `<strong>Executed SQL:</strong><br>${data.sqlPreview}`;
-        sqlPreview.style.display = 'block';
-    } else {
-        messageDiv.innerHTML = `<div class="message error">❌ ${data.error || 'Login failed.'}</div>`;
-    }
-
-} catch (error) {
-    messageDiv.innerHTML = '<div class="message error">❌ Server error. Please try again.</div>';
-    console.error('Login error:', error);
-} finally {
-    loginBtn.disabled = false;
-    loginText.style.display = 'block';
-    loading.style.display = 'none';
-}
-        });
-        
-        function loadUserProfile(user) {
-            // Hide login container and show dashboard
-            document.getElementById('loginContainer').style.display = 'none';
-            document.getElementById('dashboard').classList.add('active');
-            
-            // Update welcome message
-            document.getElementById('welcomeMessage').textContent = `Welcome back, ${user.name}!`;
-            
-            // Update navigation
-            document.getElementById('navUserName').textContent = user.name;
-            document.getElementById('navAvatarImg').src = user.avatar;
-            
-            // Update profile information
-            document.getElementById('avatarImg').src = user.avatar;
-            document.getElementById('profileName').textContent = user.name;
-            document.getElementById('profileAge').textContent = `${user.age} years old`;
-            document.getElementById('profileEmail').textContent = user.email;
-            document.getElementById('profileStudy').textContent = user.study;
-            document.getElementById('profileCivil').textContent = user.civil;
-            document.getElementById('profileUsername').textContent = user.username;
-            
-            // Update statistics
-            document.getElementById('loginCount').textContent = user.loginCount;
-            document.getElementById('daysActive').textContent = user.daysActive;
-            document.getElementById('profileViews').textContent = user.profileViews;
-            
-            // Animate statistics counting up
-            animateCounter('loginCount', user.loginCount);
-            animateCounter('daysActive', user.daysActive);
-            animateCounter('profileViews', user.profileViews);
-        }
-        
-        function animateCounter(elementId, targetValue) {
-            const element = document.getElementById(elementId);
-            const duration = 2000; // 2 seconds
-            const steps = 60;
-            const increment = targetValue / steps;
-            let current = 0;
-            
-            const timer = setInterval(() => {
-                current += increment;
-                if (current >= targetValue) {
-                    current = targetValue;
-                    clearInterval(timer);
-                }
-                element.textContent = Math.floor(current);
-            }, duration / steps);
-        }
-        
-        function logout() {
-            // Clear user session
-            localStorage.removeItem('currentUser');
-            
-            // Reset form
-            document.getElementById('loginForm').reset();
-            document.getElementById('message').innerHTML = '';
-            document.getElementById('sqlPreview').style.display = 'none';
-            
-            // Show login container and hide dashboard
-            document.getElementById('dashboard').classList.remove('active');
-            document.getElementById('loginContainer').style.display = 'block';
-            
-            // Show logout message
             setTimeout(() => {
-                document.getElementById('message').innerHTML = '<div class="message success">✅ You have been logged out successfully.</div>';
-            }, 500);
-        }
-        
-        // Add navigation functionality
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                // Remove active class from all links
-                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-                
-                // Add active class to clicked link
-                this.classList.add('active');
-                
-                // Here you could implement different dashboard views
-                console.log('Navigation clicked:', this.textContent);
-            });
-        });
-        
-        // Add hover effects to info cards
-        document.addEventListener('DOMContentLoaded', function() {
-            const infoCards = document.querySelectorAll('.info-card');
-            infoCards.forEach(card => {
-                card.addEventListener('mouseenter', function() {
-                    this.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.15)';
-                });
-                
-                card.addEventListener('mouseleave', function() {
-                    this.style.boxShadow = 'none';
-                });
-            });
-        });
-        
-        // Prevent form submission on Enter key for better UX
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && e.target.tagName !== 'BUTTON' && e.target.type !== 'submit') {
-                const form = document.getElementById('loginForm');
-                if (form.style.display !== 'none') {
-                    form.dispatchEvent(new Event('submit'));
-                }
+                loadUserProfile(data.user);
+            }, 1000);
+        } else {
+            messageDiv.innerHTML = `<div class="message error">❌ ${data.error || 'Login failed'}</div>`;
+            if (data.sqlPreview) {
+                sqlPreview.innerHTML = `<strong>Executed SQL Query:</strong><br>${data.sqlPreview}`;
+                sqlPreview.style.display = 'block';
             }
-        });
-    </script>
+        }
+    } catch (error) {
+        messageDiv.innerHTML = '<div class="message error">❌ Server error. Please try again.</div>';
+        console.error('Login error:', error);
+    } finally {
+        loginBtn.disabled = false;
+        loginText.style.display = 'block';
+        loading.style.display = 'none';
+    }
+});
+
+function loadUserProfile(user) {
+    document.getElementById('loginContainer').style.display = 'none';
+    document.getElementById('dashboard').classList.add('active');
+    document.getElementById('welcomeMessage').textContent = `Welcome back, ${user.name}!`;
+    document.getElementById('navUserName').textContent = user.name;
+    document.getElementById('navAvatarImg').src = user.avatar;
+    document.getElementById('avatarImg').src = user.avatar;
+    document.getElementById('profileName').textContent = user.name;
+    document.getElementById('profileAge').textContent = `${user.age} years old`;
+    document.getElementById('profileEmail').textContent = user.email;
+    document.getElementById('profileStudy').textContent = user.study;
+    document.getElementById('profileCivil').textContent = user.civil_status;
+    document.getElementById('profileUsername').textContent = user.username;
+    document.getElementById('loginCount').textContent = user.login_count || 0;
+    document.getElementById('daysActive').textContent = user.last_login ? 1 : 0;
+    document.getElementById('profileViews').textContent = Math.floor(Math.random() * 1000 + 100); // Simulated view count
+
+    animateCounter('loginCount', user.login_count || 0);
+    animateCounter('daysActive', 1);
+    animateCounter('profileViews', Math.floor(Math.random() * 1000 + 100));
+}
+
+function animateCounter(elementId, targetValue) {
+    const element = document.getElementById(elementId);
+    const duration = 1500;
+    const steps = 60;
+    const increment = targetValue / steps;
+    let current = 0;
+
+    const timer = setInterval(() => {
+        current += increment;
+        if (current >= targetValue) {
+            current = targetValue;
+            clearInterval(timer);
+        }
+        element.textContent = Math.floor(current);
+    }, duration / steps);
+}
+
+function logout() {
+    localStorage.removeItem('currentUser');
+    fetch('/api/logout', { method: 'POST' });
+
+    document.getElementById('loginForm').reset();
+    document.getElementById('message').innerHTML = '';
+    document.getElementById('sqlPreview').style.display = 'none';
+    document.getElementById('dashboard').classList.remove('active');
+    document.getElementById('loginContainer').style.display = 'block';
+}
+
+window.addEventListener('load', async () => {
+    try {
+        const res = await fetch('/api/auth-status');
+        const status = await res.json();
+        if (status.authenticated) {
+            const profileRes = await fetch('/api/profile');
+            const data = await profileRes.json();
+            if (profileRes.ok) {
+                loadUserProfile(data.user);
+            }
+        }
+    } catch (err) {
+        console.error('Auth check failed:', err);
+    }
+});
+
+document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', function (e) {
+        e.preventDefault();
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        this.classList.add('active');
+    });
+});
+</script>
 </body>
 </html>
