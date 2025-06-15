@@ -1,24 +1,28 @@
-// server.js
 const express = require('express');
 const mariadb = require('mariadb');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3306;
+const PORT = process.env.PORT || 3000; // Use 3000 instead of 3306
 
-// Rate limiting
+// Rate limiting middleware
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 5,
   message: 'Too many login attempts, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 // Middleware
+app.use(cors({
+  origin: '*', // In production, replace with your frontend origin
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
@@ -29,8 +33,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: false, // Set to true in production with HTTPS
-    maxAge: 1000 * 60 * 60 * 24 // 24 hours
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24
   }
 }));
 
@@ -50,8 +55,7 @@ async function initDatabase() {
   let conn;
   try {
     conn = await pool.getConnection();
-    
-    // Create users table
+
     await conn.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -69,8 +73,7 @@ async function initDatabase() {
         is_active BOOLEAN DEFAULT TRUE
       )
     `);
-    
-    // Create sessions table for tracking
+
     await conn.query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -81,25 +84,23 @@ async function initDatabase() {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
-    
-    // Check if we need to create default users
-    const userCount = await conn.query('SELECT COUNT(*) as count FROM users');
-    if (userCount[0].count === 0) {
+
+    const result = await conn.query('SELECT COUNT(*) as count FROM users');
+    if (result[0].count === 0) {
       await createDefaultUsers(conn);
     }
-    
-    console.log('Database initialized successfully');
-    
+
+    console.log('✅ Database initialized');
   } catch (err) {
-    console.error('Database initialization error:', err);
+    console.error('❌ DB Init Error:', err);
   } finally {
     if (conn) conn.release();
   }
 }
 
-// Create default users with hashed passwords
+// Default users
 async function createDefaultUsers(conn) {
-  const defaultUsers = [
+  const users = [
     {
       username: 'admin',
       password: 'admin123',
@@ -131,99 +132,71 @@ async function createDefaultUsers(conn) {
       avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
     }
   ];
-  
-  for (const user of defaultUsers) {
-    const hashedPassword = await bcrypt.hash(user.password, 12);
+
+  for (const user of users) {
+    const hash = await bcrypt.hash(user.password, 12);
     await conn.query(`
       INSERT INTO users (username, password_hash, name, age, email, study, civil_status, avatar)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, [user.username, hashedPassword, user.name, user.age, user.email, user.study, user.civil_status, user.avatar]);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [user.username, hash, user.name, user.age, user.email, user.study, user.civil_status, user.avatar]);
   }
-  
-  console.log('Default users created successfully');
+
+  console.log('✅ Default users created');
 }
 
-// Middleware to check if user is authenticated
+// Require authentication middleware
 function requireAuth(req, res, next) {
   if (req.session && req.session.userId) {
-    return next();
+    next();
   } else {
-    return res.status(401).json({ error: 'Authentication required' });
+    res.status(401).json({ error: 'Authentication required' });
   }
 }
 
 // Routes
 
-// Serve the main page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Login endpoint
 app.post('/api/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
-  
+  const sqlPreview = `SELECT * FROM users WHERE username = '${(username || '').replace(/'/g, "''")}' AND password = '${(password || '').replace(/'/g, "''")}'`;
+
   if (!username || !password) {
-    return res.status(400).json({ 
-      error: 'Username and password are required',
-      sqlQuery: `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`
-    });
+    return res.status(400).json({ error: 'Missing credentials', sqlQuery: sqlPreview });
   }
-  
+
   let conn;
   try {
     conn = await pool.getConnection();
-    
-    // Use parameterized query to prevent SQL injection
-    const users = await conn.query(
-      'SELECT id, username, password_hash, name, age, email, study, civil_status, avatar, login_count FROM users WHERE username = ? AND is_active = TRUE',
+
+    const rows = await conn.query(
+      'SELECT * FROM users WHERE username = ? AND is_active = TRUE',
       [username]
     );
-    
-    if (users.length === 0) {
-      return res.status(401).json({ 
-        error: 'Invalid username or password',
-        sqlQuery: `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`
-      });
+
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid username or password', sqlQuery: sqlPreview });
     }
-    
-    const user = users[0];
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
-    
-    if (!passwordMatch) {
-      return res.status(401).json({ 
-        error: 'Invalid username or password',
-        sqlQuery: `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`
-      });
+
+    const user = rows[0];
+    const match = await bcrypt.compare(password, user.password_hash);
+
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid username or password', sqlQuery: sqlPreview });
     }
-    
-    // Update login count and last login
-    await conn.query(
-      'UPDATE users SET login_count = login_count + 1, last_login = NOW() WHERE id = ?',
-      [user.id]
-    );
-    
-    // Log the session
-    await conn.query(
-      'INSERT INTO user_sessions (user_id, ip_address, user_agent) VALUES (?, ?, ?)',
-      [user.id, req.ip, req.get('User-Agent')]
-    );
-    
-    // Set session
+
+    await conn.query('UPDATE users SET login_count = login_count + 1, last_login = NOW() WHERE id = ?', [user.id]);
+    await conn.query('INSERT INTO user_sessions (user_id, ip_address, user_agent) VALUES (?, ?, ?)', [user.id, req.ip, req.get('User-Agent')]);
+
     req.session.userId = user.id;
     req.session.username = user.username;
-    
-    // Remove password hash from response
+
     delete user.password_hash;
     user.login_count += 1;
-    
-    res.json({ 
-      success: true, 
-      user: user,
-      message: 'Login successful',
-      sqlQuery: `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`
-    });
-    
+
+    res.json({ success: true, user, sqlQuery: sqlPreview });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -232,43 +205,25 @@ app.post('/api/login', loginLimiter, async (req, res) => {
   }
 });
 
-// Get user profile
 app.get('/api/profile', requireAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    
-    const users = await conn.query(
-      'SELECT id, username, name, age, email, study, civil_status, avatar, login_count, created_at, last_login FROM users WHERE id = ?',
-      [req.session.userId]
-    );
-    
-    if (users.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const user = users[0];
-    
-    // Get session statistics
-    const sessionStats = await conn.query(
-      'SELECT COUNT(*) as total_sessions, MIN(session_start) as first_login FROM user_sessions WHERE user_id = ?',
-      [user.id]
-    );
-    
-    // Calculate days active
-    const daysActive = sessionStats[0].first_login 
-      ? Math.floor((Date.now() - new Date(sessionStats[0].first_login).getTime()) / (1000 * 60 * 60 * 24))
-      : 0;
-    
+
+    const users = await conn.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    if (!users.length) return res.status(404).json({ error: 'User not found' });
+
+    const stats = await conn.query('SELECT COUNT(*) as total_sessions, MIN(session_start) as first_login FROM user_sessions WHERE user_id = ?', [req.session.userId]);
+    const daysActive = stats[0].first_login ? Math.floor((Date.now() - new Date(stats[0].first_login).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
     res.json({
-      user: user,
+      user: users[0],
       stats: {
-        totalSessions: sessionStats[0].total_sessions,
-        daysActive: daysActive,
-        profileViews: Math.floor(Math.random() * 150) + 30 // Simulated for demo
+        totalSessions: stats[0].total_sessions,
+        daysActive,
+        profileViews: Math.floor(Math.random() * 150) + 30
       }
     });
-    
   } catch (err) {
     console.error('Profile error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -277,45 +232,34 @@ app.get('/api/profile', requireAuth, async (req, res) => {
   }
 });
 
-// Logout endpoint
 app.post('/api/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Could not log out' });
-    }
-    res.json({ success: true, message: 'Logged out successfully' });
+  req.session.destroy(err => {
+    if (err) return res.status(500).json({ error: 'Logout failed' });
+    res.json({ success: true });
   });
 });
 
-// Check authentication status
 app.get('/api/auth-status', (req, res) => {
-  if (req.session && req.session.userId) {
-    res.json({ authenticated: true, userId: req.session.userId });
-  } else {
-    res.json({ authenticated: false });
-  }
+  res.json({ authenticated: !!req.session?.userId });
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Initialize database and start server
+// Start server
 initDatabase().then(() => {
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Access the application at http://localhost:${PORT}`);
+    console.log(`🚀 Server is running at http://localhost:${PORT}`);
   });
 }).catch(err => {
-  console.error('Failed to start server:', err);
+  console.error('Failed to start:', err);
   process.exit(1);
 });
 
-// Graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('\nShutting down gracefully...');
+  console.log('\n🛑 Gracefully shutting down...');
   await pool.end();
   process.exit(0);
 });

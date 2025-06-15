@@ -584,39 +584,52 @@
             sqlPreview.style.display = 'block';
             
             // Simulate API delay
-            setTimeout(() => {
-                try {
-                    // Check credentials
-                    if (userData[username] && userData[username].password === password) {
-                        // Successful login
-                        messageDiv.innerHTML = '<div class="message success">✅ Login successful! Redirecting to dashboard...</div>';
-                        
-                        // Store user session
-                        const userSession = {
-                            username: username,
-                            ...userData[username]
-                        };
-                        localStorage.setItem('currentUser', JSON.stringify(userSession));
-                        
-                        // Redirect to dashboard after delay
-                        setTimeout(() => {
-                            loadUserProfile(userSession);
-                        }, 1500);
-                        
-                    } else {
-                        // Failed login
-                        messageDiv.innerHTML = '<div class="message error">❌ Invalid username or password. Please try again.</div>';
-                    }
-                } catch (error) {
-                    messageDiv.innerHTML = '<div class="message error">❌ An error occurred during login. Please try again.</div>';
-                    console.error('Login error:', error);
-                }
-                
-                // Reset button state
-                loginBtn.disabled = false;
-                loginText.style.display = 'block';
-                loading.style.display = 'none';
-            }, 2000);
+            try {
+    const response = await fetch('https://logindb.alwaysdata.net/api/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ username, password })
+    });
+
+    const data = await response.json();
+
+    // Display SQL query preview (educational)
+    const sqlQuery = data.sqlQuery || `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+    sqlPreview.innerHTML = `<strong>Generated SQL Query:</strong><br>${sqlQuery}`;
+    sqlPreview.style.display = 'block';
+
+    if (data.success) {
+        const userSession = {
+            username: data.user.username,
+            name: data.user.name,
+            age: data.user.age,
+            email: data.user.email,
+            study: data.user.study,
+            civil: data.user.civil_status,
+            avatar: data.user.avatar,
+            loginCount: data.user.login_count
+        };
+
+        localStorage.setItem('currentUser', JSON.stringify(userSession));
+        messageDiv.innerHTML = '<div class="message success">✅ Login successful! Redirecting to dashboard...</div>';
+        
+        setTimeout(() => {
+            loadUserProfile(userSession);
+        }, 1500);
+    } else {
+        messageDiv.innerHTML = `<div class="message error">❌ ${data.error}</div>`;
+    }
+} catch (error) {
+    console.error(error);
+    messageDiv.innerHTML = '<div class="message error">❌ An error occurred during login. Please try again.</div>';
+} finally {
+    loginBtn.disabled = false;
+    loginText.style.display = 'block';
+    loading.style.display = 'none';
+}
         });
         
         function loadUserProfile(user) {
