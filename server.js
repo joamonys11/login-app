@@ -95,15 +95,13 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     let users;
     let sqlPreview;
 
-    if (DEMO_INJECTION) {
-      // Simulate vulnerable SQL query (only for demo)
-      sqlPreview = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
-      users = await conn.query(sqlPreview);
-    } else {  
-      // Secure parameterized query (recommended)
-      sqlPreview = 'SELECT * FROM users WHERE username = ? AND is_active = TRUE';
-      users = await conn.query(sqlPreview, [username]);
-    }
+   if (DEMO_INJECTION) {
+  sqlPreview = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
+  users = await conn.query(sqlPreview);
+} else {
+  sqlPreview = 'SELECT * FROM users WHERE username = ? AND is_active = TRUE';
+  users = await conn.query(sqlPreview, [username]);
+}
 
     if (!users.length) {
       return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
