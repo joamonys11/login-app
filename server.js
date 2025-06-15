@@ -92,7 +92,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
   try {
     conn = await pool.getConnection();
 
-    let sqlPreview = `SELECT * FROM users WHERE username = '${username}'`;
+    let sqlPreview = 'SELECT * FROM users WHERE username = ?';
     const users = await conn.query(sqlPreview);
 
     if (!users.length) {
@@ -105,14 +105,20 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     console.log('User from DB:', user);
     console.log('Submitted password:', password);
 
-    const valid = DEMO_INJECTION || user.password === password;
+if (!user) {
+  return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
+}
 
-    if (!valid) {
-      return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
-    }
+const valid = DEMO_INJECTION || user.password === password;
+
+if (!valid) {
+  return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
+}
 
     await conn.query('UPDATE users SET login_count = login_count + 1, last_login = NOW() WHERE id = ?', [user.id]);
     req.session.userId = user.id;
+
+    
 
     delete user.password;  // 🔥 This might cause issue if `password` doesn't exist
 
