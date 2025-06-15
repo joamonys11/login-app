@@ -9,7 +9,7 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3306;
-//const DEMO_INJECTION = process.env.DEMO_INJECTION === 'true';
+const DEMO_INJECTION = process.env.DEMO_INJECTION === 'true';
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
