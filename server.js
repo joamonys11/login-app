@@ -91,30 +91,35 @@ app.post('/api/login', loginLimiter, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    let users;
-    let sqlPreview;
 
-   if (DEMO_INJECTION) {
-sqlPreview = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
-users = await conn.query(sqlPreview);
+    let sqlPreview = `SELECT * FROM users WHERE username = '${username}'`;
+    const users = await conn.query(sqlPreview);
 
-} else {
-  sqlPreview = 'SELECT * FROM users WHERE username = ? AND is_active = TRUE';
-  users = await conn.query(sqlPreview, [username]);
-  //console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
-}
+    if (!users.length) {
+      return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
+    }
 
-const user = users[0];
+    const user = users[0];
 
-const valid = DEMO_INJECTION || user.password === password;
+    // 🔍 Debug output
+    console.log('User from DB:', user);
+    console.log('Submitted password:', password);
+
+    const valid = DEMO_INJECTION || user.password === password;
+
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
+    }
 
     await conn.query('UPDATE users SET login_count = login_count + 1, last_login = NOW() WHERE id = ?', [user.id]);
     req.session.userId = user.id;
-    delete user.password;
+
+    delete user.password;  // 🔥 This might cause issue if `password` doesn't exist
+
     res.json({ success: true, user, sqlPreview });
 
   } catch (err) {
-    console.error('Login Error:', err);
+    console.error('❌ Login Error:', err);  // 🔍 Look here in your terminal logs
     res.status(500).json({ error: 'Server error' });
   } finally {
     if (conn) conn.release();
