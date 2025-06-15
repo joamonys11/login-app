@@ -1,6 +1,6 @@
 // server.js
 //require('dotenv').config();
-const DEMO_INJECTION = process.env.DEMO_INJECTION === 'true';
+const DEMO_INJECTION = true;
 const express = require('express');
 const mariadb = require('mariadb');
 const bcrypt = require('bcrypt');
@@ -111,9 +111,7 @@ console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISAB
     }
 
     const user = users[0];
-    const valid = DEMO_INJECTION ? true : await bcrypt.compare(password, user.password_hash)
-      ? (user.username === username) // Bypass hashing for demo mode
-      : await bcrypt.compare(password, user.password_hash);
+    const valid = DEMO_INJECTION || await bcrypt.compare(password, user.password_hash);
 
     if (!valid) {
       return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
