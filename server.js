@@ -9,16 +9,15 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3306;
 
 const pool = mariadb.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'login_app',
-  connectionLimit: 10,
-  acquireTimeout: 60000,
-  timeout: 60000
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: 3306, // ✅ REQUIRED for AlwaysData MariaDB
+  connectionLimit: 5
 });
 
 const loginLimiter = rateLimit({
