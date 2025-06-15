@@ -1,4 +1,4 @@
-// Full fixed backend code for Railway + MariaDB
+// Full backend code for secure MariaDB login system using Express.js
 require('dotenv').config();
 const express = require('express');
 const mariadb = require('mariadb');
@@ -11,7 +11,6 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// MariaDB pool
 const pool = mariadb.createPool({
   host: process.env.MYSQLHOST,
   user: process.env.MYSQLUSER,
@@ -21,7 +20,6 @@ const pool = mariadb.createPool({
   connectionLimit: 5
 });
 
-// Rate limiting middleware
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -30,14 +28,13 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Middleware
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
+  secret: process.env.SESSION_SECRET || 'supersecret',
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -47,12 +44,10 @@ app.use(session({
   }
 }));
 
-// Init DB
 async function initDatabase() {
   let conn;
   try {
     conn = await pool.getConnection();
-
     await conn.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -68,16 +63,6 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP NULL,
         is_active BOOLEAN DEFAULT TRUE
-      )`);
-
-    await conn.query(`
-      CREATE TABLE IF NOT EXISTS user_sessions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT,
-        session_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        ip_address VARCHAR(45),
-        user_agent TEXT,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )`);
 
     const result = await conn.query('SELECT COUNT(*) as count FROM users');
@@ -168,8 +153,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
         login_count: user.login_count,
         days_active: 0,
         profile_views: 0
-      },
-      sqlQuery: `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`
+      }
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -224,7 +208,7 @@ app.use((err, req, res, next) => {
 
 initDatabase().then(() => {
   app.listen(PORT, () => {
-    console.log(`🚀 Server is running at http://localhost:${PORT}`);
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
   });
 }).catch(err => {
   console.error('Failed to start:', err);
