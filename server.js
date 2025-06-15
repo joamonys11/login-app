@@ -97,7 +97,8 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 
    if (DEMO_INJECTION) {
   sqlPreview = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
-  users = await conn.query(sqlPreview);
+//users = await conn.query(sqlPreview);
+
 } else {
   sqlPreview = 'SELECT * FROM users WHERE username = ? AND is_active = TRUE';
   users = await conn.query(sqlPreview, [username]);
