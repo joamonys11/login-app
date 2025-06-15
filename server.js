@@ -99,7 +99,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       // Simulate vulnerable SQL query (only for demo)
       sqlPreview = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
       users = await conn.query(sqlPreview);
-    } else {
+    } else {  
       // Secure parameterized query (recommended)
       sqlPreview = 'SELECT * FROM users WHERE username = ? AND is_active = TRUE';
       users = await conn.query(sqlPreview, [username]);
@@ -110,7 +110,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     }
 
     const user = users[0];
-    const valid = DEMO_INJECTION
+    const valid = DEMO_INJECTION ? true : await bcrypt.compare(password, user.password_hash)
       ? (user.username === username) // Bypass hashing for demo mode
       : await bcrypt.compare(password, user.password_hash);
 
