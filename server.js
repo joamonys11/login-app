@@ -1,3 +1,5 @@
+// Full fixed backend code for Railway + MariaDB
+require('dotenv').config();
 const express = require('express');
 const mariadb = require('mariadb');
 const bcrypt = require('bcrypt');
@@ -7,11 +9,21 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3000; // Use 3000 instead of 3306
+const PORT = process.env.PORT || 3000;
+
+// MariaDB pool
+const pool = mariadb.createPool({
+  host: process.env.MYSQLHOST,
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQLDATABASE,
+  port: process.env.MYSQLPORT || 3306,
+  connectionLimit: 5
+});
 
 // Rate limiting middleware
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
+  windowMs: 15 * 60 * 1000,
   max: 5,
   message: 'Too many login attempts, please try again later.',
   standardHeaders: true,
@@ -19,38 +31,23 @@ const loginLimiter = rateLimit({
 });
 
 // Middleware
-app.use(cors({
-  origin: '*', // In production, replace with your frontend origin
-  credentials: true
-}));
+app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
   resave: false,
   saveUninitialized: false,
-  cookie: { 
+  cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 1000 * 60 * 60 * 24
   }
 }));
 
-// MariaDB connection pool
-const pool = mariadb.createPool({
-  host: process.env.DB_HOST || 'mysql-logindb.alwaysdata.net',
-  user: process.env.DB_USER || 'logindb',
-  password: process.env.DB_PASSWORD || '@Joe105411',
-  database: process.env.DB_NAME || 'logindb_app',
-  connectionLimit: 10,
-  acquireTimeout: 60000,
-  timeout: 60000
-});
-
-// Database initialization
+// Init DB
 async function initDatabase() {
   let conn;
   try {
@@ -71,8 +68,7 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP NULL,
         is_active BOOLEAN DEFAULT TRUE
-      )
-    `);
+      )`);
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
@@ -82,8 +78,7 @@ async function initDatabase() {
         ip_address VARCHAR(45),
         user_agent TEXT,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      )
-    `);
+      )`);
 
     const result = await conn.query('SELECT COUNT(*) as count FROM users');
     if (result[0].count === 0) {
@@ -98,38 +93,22 @@ async function initDatabase() {
   }
 }
 
-// Default users
 async function createDefaultUsers(conn) {
   const users = [
     {
-      username: 'admin',
-      password: 'admin123',
-      name: 'Alexandra Martinez',
-      age: 28,
-      email: 'alexandra.martinez@email.com',
-      study: 'Computer Science - Master\'s Degree',
-      civil_status: 'Single',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b9fd0d6f?w=150&h=150&fit=crop&crop=face'
+      username: 'admin', password: 'admin123', name: 'Alexandra Martinez', age: 28,
+      email: 'alexandra.martinez@email.com', study: 'Computer Science - Master\'s Degree',
+      civil_status: 'Single', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b9fd0d6f?w=150&h=150&fit=crop&crop=face'
     },
     {
-      username: 'user',
-      password: 'password',
-      name: 'Michael Thompson',
-      age: 35,
-      email: 'michael.thompson@email.com',
-      study: 'Business Administration - MBA',
-      civil_status: 'Married',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
+      username: 'user', password: 'password', name: 'Michael Thompson', age: 35,
+      email: 'michael.thompson@email.com', study: 'Business Administration - MBA',
+      civil_status: 'Married', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
     },
     {
-      username: 'john',
-      password: 'john123',
-      name: 'John Anderson',
-      age: 24,
-      email: 'john.anderson@email.com',
-      study: 'Mechanical Engineering - Bachelor\'s Degree',
-      civil_status: 'In a Relationship',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+      username: 'john', password: 'john123', name: 'John Anderson', age: 24,
+      email: 'john.anderson@email.com', study: 'Mechanical Engineering - Bachelor\'s Degree',
+      civil_status: 'In a Relationship', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
     }
   ];
 
@@ -144,7 +123,6 @@ async function createDefaultUsers(conn) {
   console.log('✅ Default users created');
 }
 
-// Require authentication middleware
 function requireAuth(req, res, next) {
   if (req.session && req.session.userId) {
     next();
@@ -153,53 +131,49 @@ function requireAuth(req, res, next) {
   }
 }
 
-// Routes
-
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.post('/api/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
-  const sqlPreview = `SELECT * FROM users WHERE username = '${(username || '').replace(/'/g, "''")}' AND password = '${(password || '').replace(/'/g, "''")}'`;
-
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Missing credentials', sqlQuery: sqlPreview });
-  }
-
   let conn;
+
   try {
     conn = await pool.getConnection();
+    const users = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
 
-    const rows = await conn.query(
-      'SELECT * FROM users WHERE username = ? AND is_active = TRUE',
-      [username]
-    );
-
-    if (rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid username or password', sqlQuery: sqlPreview });
+    if (!users.length) {
+      return res.json({ success: false, error: 'Invalid credentials' });
     }
 
-    const user = rows[0];
+    const user = users[0];
     const match = await bcrypt.compare(password, user.password_hash);
 
     if (!match) {
-      return res.status(401).json({ error: 'Invalid username or password', sqlQuery: sqlPreview });
+      return res.json({ success: false, error: 'Invalid credentials' });
     }
 
-    await conn.query('UPDATE users SET login_count = login_count + 1, last_login = NOW() WHERE id = ?', [user.id]);
-    await conn.query('INSERT INTO user_sessions (user_id, ip_address, user_agent) VALUES (?, ?, ?)', [user.id, req.ip, req.get('User-Agent')]);
-
     req.session.userId = user.id;
-    req.session.username = user.username;
-
-    delete user.password_hash;
-    user.login_count += 1;
-
-    res.json({ success: true, user, sqlQuery: sqlPreview });
+    res.json({
+      success: true,
+      user: {
+        username: user.username,
+        name: user.name,
+        age: user.age,
+        email: user.email,
+        study: user.study,
+        civil_status: user.civil_status,
+        avatar: user.avatar,
+        login_count: user.login_count,
+        days_active: 0,
+        profile_views: 0
+      },
+      sqlQuery: `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`
+    });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -248,7 +222,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Start server
 initDatabase().then(() => {
   app.listen(PORT, () => {
     console.log(`🚀 Server is running at http://localhost:${PORT}`);
