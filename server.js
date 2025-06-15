@@ -98,12 +98,11 @@ app.post('/api/login', loginLimiter, async (req, res) => {
    if (DEMO_INJECTION) {
 sqlPreview = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
 users = await conn.query(sqlPreview);
-console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
 
 } else {
   sqlPreview = 'SELECT * FROM users WHERE username = ? AND is_active = TRUE';
   users = await conn.query(sqlPreview, [username]);
-  console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
+  //console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
 }
 
     if (!users.length) {
@@ -113,9 +112,7 @@ console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISAB
     const user = users[0];
     const valid = DEMO_INJECTION || await bcrypt.compare(password, user.password_hash);
 
-    if (!valid) {
-      return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
-    }
+   
 
     await conn.query('UPDATE users SET login_count = login_count + 1, last_login = NOW() WHERE id = ?', [user.id]);
     req.session.userId = user.id;
