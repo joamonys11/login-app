@@ -1,126 +1,731 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MariaDB Login System</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MariaDB Login System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: bold;
+        }
+        
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            position: relative;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .message {
+            margin-top: 1rem;
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            margin-bottom: 1rem;
+            font-size: 14px;
+        }
+        
+        .security-info {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #495057;
+            margin-top: 1rem;
+        }
+        
+        .dashboard {
+            display: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 0;
+            width: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+        }
+        
+        .dashboard.active {
+            display: block;
+        }
+        
+        .dashboard-nav {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .dashboard-title {
+            color: white;
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .nav-link:hover,
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .user-menu {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-avatar-nav {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .user-avatar-nav:hover {
+            border-color: white;
+            transform: scale(1.05);
+        }
+        
+        .user-name {
+            color: white;
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+        
+        .logout-btn {
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(220, 53, 69, 1);
+            transform: translateY(-2px);
+        }
+        
+        .dashboard-content {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .profile-section {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .profile-avatar {
+            flex-shrink: 0;
+        }
+        
+        .avatar-img {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #667eea;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .profile-info {
+            flex: 1;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .info-card {
+            background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
+            padding: 1.5rem;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.2s;
+        }
+        
+        .info-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 0.5rem;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .info-value {
+            color: #333;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .welcome-message {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 18px;
+        }
+        
+        .stats-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .sql-preview {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 1rem;
+            border: 1px solid #dee2e6;
+        }
+        
+        .connected-badge {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+    </style>
 </head>
 <body>
-  <div class="login-container" id="loginContainer">
-    <h2>MariaDB Login</h2>
-    <form id="loginForm">
-      <input type="text" id="username" placeholder="Username" required><br>
-      <input type="password" id="password" placeholder="Password" required><br>
-      <button type="submit" id="loginBtn">
-        <span id="loginText">Login</span>
-        <span id="loading" style="display:none;">Loading...</span>
-      </button>
-    </form>
-    <div id="message"></div>
-    <div id="sqlPreview" class="sql-preview" style="display: none;"></div>
-  </div>
+    <div class="login-container" id="loginContainer">
+        <div class="connected-badge">🔗 Connected to MariaDB</div>
+        
+        <div class="warning">
+            ⚠️ This demonstrates SQL injection vulnerabilities. The server uses secure parameterized queries.
+        </div>
+        
+        <h2>MariaDB Login System</h2>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <button type="submit" class="login-btn" id="loginBtn">
+                <span id="loginText">Login</span>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                </div>
+            </button>
+        </form>
+        
+        <div id="message"></div>
+        <div id="sqlPreview" class="sql-preview" style="display: none;"></div>
+        
+        <div class="security-info">
+            <strong>Test Credentials:</strong><br>
+            Username: admin, Password: admin123<br>
+            Username: user, Password: password<br>
+            Username: john, Password: john123
+        </div>
+    </div>
 
-  <div class="dashboard" id="dashboard" style="display: none;">
-    <h2 id="welcomeMessage"></h2>
-    <img id="avatarImg" src="" alt="Avatar" width="100"><br>
-    <p><strong>Name:</strong> <span id="profileName"></span></p>
-    <p><strong>Username:</strong> <span id="profileUsername"></span></p>
-    <p><strong>Email:</strong> <span id="profileEmail"></span></p>
-    <p><strong>Age:</strong> <span id="profileAge"></span></p>
-    <p><strong>Study:</strong> <span id="profileStudy"></span></p>
-    <p><strong>Civil Status:</strong> <span id="profileCivil"></span></p>
-    <p><strong>Login Count:</strong> <span id="loginCount"></span></p>
-    <button onclick="logout()">Logout</button>
-  </div>
+    <div class="dashboard" id="dashboard">
+        <nav class="dashboard-nav">
+            <h2 class="dashboard-title">MariaDB Dashboard</h2>
+            <div class="nav-menu">
+                <ul class="nav-links">
+                    <li><a href="#" class="nav-link active">Profile</a></li>
+                    <li><a href="#" class="nav-link">Settings</a></li>
+                    <li><a href="#" class="nav-link">Activity</a></li>
+                </ul>
+                <div class="user-menu">
+                    <span class="user-name" id="navUserName">User</span>
+                    <img id="navAvatarImg" class="user-avatar-nav" src="" alt="User Avatar">
+                    <button class="logout-btn" onclick="logout()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                            <polyline points="16,17 21,12 16,7"/>
+                            <line x1="21" y1="12" x2="9" y2="12"/>
+                        </svg>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="dashboard-content">
+            <div class="welcome-message" id="welcomeMessage">
+                Welcome back!
+            </div>
+            
+            <div class="profile-section">
+                <div class="profile-avatar">
+                    <img id="avatarImg" class="avatar-img" src="" alt="Profile Avatar">
+                </div>
+                
+                <div class="profile-info">
+                    <div class="info-grid">
+                        <div class="info-card">
+                            <div class="info-label">Full Name</div>
+                            <div class="info-value" id="profileName"></div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <div class="info-label">Age</div>
+                            <div class="info-value" id="profileAge"></div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <div class="info-label">Email Address</div>
+                            <div class="info-value" id="profileEmail"></div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <div class="info-label">Education</div>
+                            <div class="info-value" id="profileStudy"></div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <div class="info-label">Civil Status</div>
+                            <div class="info-value" id="profileCivil"></div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <div class="info-label">Username</div>
+                            <div class="info-value" id="profileUsername"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stats-section">
+                <h3 class="stats-title">Account Statistics (From MariaDB)</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="loginCount">0</div>
+                        <div class="stat-label">Total Logins</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-number" id="daysActive">0</div>
+                        <div class="stat-label">Days Active</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-number" id="profileViews">0</div>
+                        <div class="stat-label">Profile Views</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      checkAuthStatus();
-
-      document.getElementById('loginForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value.trim();
-        const messageDiv = document.getElementById('message');
-        const sqlPreview = document.getElementById('sqlPreview');
-        const loginBtn = document.getElementById('loginBtn');
-        const loginText = document.getElementById('loginText');
-        const loading = document.getElementById('loading');
-
-        messageDiv.innerHTML = '';
-        sqlPreview.style.display = 'none';
-
-        loginBtn.disabled = true;
-        loginText.style.display = 'none';
-        loading.style.display = 'inline';
-
-        try {
-          const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-          });
-
-          const data = await res.json();
-
-          if (res.ok && data.success) {
-            messageDiv.innerHTML = '<div class="message success">✅ Login successful!</div>';
-            sqlPreview.innerHTML = `<strong>SQL Executed:</strong><br>${data.sqlPreview}`;
-            sqlPreview.style.display = 'block';
-            setTimeout(loadUserProfile, 1000);
-          } else {
-            messageDiv.innerHTML = `<div class="message error">❌ ${data.error}</div>`;
-            if (data.sqlPreview) {
-              sqlPreview.innerHTML = `<strong>SQL Executed:</strong><br>${data.sqlPreview}`;
-              sqlPreview.style.display = 'block';
+    <script>
+        // Sample user data for demonstration
+        const userData = {
+            'admin': {
+                password: 'admin123',
+                name: 'Administrator',
+                age: 35,
+                email: 'admin@company.com',
+                study: 'Computer Science',
+                civil: 'Married',
+                avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+                loginCount: 247,
+                daysActive: 89,
+                profileViews: 1543
+            },
+            'user': {
+                password: 'password',
+                name: 'Regular User',
+                age: 28,
+                email: 'user@company.com',
+                study: 'Business Administration',
+                civil: 'Single',
+                avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user',
+                loginCount: 156,
+                daysActive: 45,
+                profileViews: 892
+            },
+            'john': {
+                password: 'john123',
+                name: 'John Smith',
+                age: 32,
+                email: 'john.smith@company.com',
+                study: 'Engineering',
+                civil: 'Married',
+                avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john',
+                loginCount: 89,
+                daysActive: 23,
+                profileViews: 456
             }
-          }
-        } catch (error) {
-          messageDiv.innerHTML = '<div class="message error">❌ Server error occurred.</div>';
-        } finally {
-          loginBtn.disabled = false;
-          loginText.style.display = 'inline';
-          loading.style.display = 'none';
+        };
+
+        // Check if user is already authenticated
+        window.addEventListener('load', checkAuthStatus);
+        
+        function checkAuthStatus() {
+            const currentUser = localStorage.getItem('currentUser');
+            if (currentUser) {
+                loadUserProfile(JSON.parse(currentUser));
+            }
         }
-      });
-    });
-
-    async function checkAuthStatus() {
-      const res = await fetch('/api/auth-status');
-      const data = await res.json();
-      if (data.authenticated) {
-        loadUserProfile();
-      }
-    }
-
-    async function loadUserProfile() {
-      const res = await fetch('/api/profile');
-      const data = await res.json();
-      if (!res.ok || !data.user) return;
-
-      const user = data.user;
-      document.getElementById('loginContainer').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
-
-      document.getElementById('welcomeMessage').textContent = `Welcome back, ${user.name}!`;
-      document.getElementById('avatarImg').src = user.avatar;
-      document.getElementById('profileName').textContent = user.name;
-      document.getElementById('profileUsername').textContent = user.username;
-      document.getElementById('profileEmail').textContent = user.email;
-      document.getElementById('profileAge').textContent = `${user.age} years old`;
-      document.getElementById('profileStudy').textContent = user.study;
-      document.getElementById('profileCivil').textContent = user.civil_status;
-      document.getElementById('loginCount').textContent = user.login_count;
-    }
-
-    async function logout() {
-      await fetch('/api/logout', { method: 'POST' });
-      document.getElementById('loginForm').reset();
-      document.getElementById('dashboard').style.display = 'none';
-      document.getElementById('loginContainer').style.display = 'block';
-      document.getElementById('message').innerHTML = '<div class="message success">✅ You have been logged out.</div>';
-    }
-  </script>
+        
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const messageDiv = document.getElementById('message');
+            const sqlPreview = document.getElementById('sqlPreview');
+            const loginBtn = document.getElementById('loginBtn');
+            const loginText = document.getElementById('loginText');
+            const loading = document.getElementById('loading');
+            
+            // Show loading state
+            loginBtn.disabled = true;
+            loginText.style.display = 'none';
+            loading.style.display = 'block';
+            
+            // Clear previous messages
+            messageDiv.innerHTML = '';
+            sqlPreview.style.display = 'none';
+            
+            // Show SQL preview for educational purposes
+            const sqlQuery = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+            sqlPreview.innerHTML = `<strong>Generated SQL Query:</strong><br>${sqlQuery}`;
+            sqlPreview.style.display = 'block';
+            
+            // Simulate API delay
+            setTimeout(() => {
+                try {
+                    // Check credentials
+                    if (userData[username] && userData[username].password === password) {
+                        // Successful login
+                        messageDiv.innerHTML = '<div class="message success">✅ Login successful! Redirecting to dashboard...</div>';
+                        
+                        // Store user session
+                        const userSession = {
+                            username: username,
+                            ...userData[username]
+                        };
+                        localStorage.setItem('currentUser', JSON.stringify(userSession));
+                        
+                        // Redirect to dashboard after delay
+                        setTimeout(() => {
+                            loadUserProfile(userSession);
+                        }, 1500);
+                        
+                    } else {
+                        // Failed login
+                        messageDiv.innerHTML = '<div class="message error">❌ Invalid username or password. Please try again.</div>';
+                    }
+                } catch (error) {
+                    messageDiv.innerHTML = '<div class="message error">❌ An error occurred during login. Please try again.</div>';
+                    console.error('Login error:', error);
+                }
+                
+                // Reset button state
+                loginBtn.disabled = false;
+                loginText.style.display = 'block';
+                loading.style.display = 'none';
+            }, 2000);
+        });
+        
+        function loadUserProfile(user) {
+            // Hide login container and show dashboard
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('dashboard').classList.add('active');
+            
+            // Update welcome message
+            document.getElementById('welcomeMessage').textContent = `Welcome back, ${user.name}!`;
+            
+            // Update navigation
+            document.getElementById('navUserName').textContent = user.name;
+            document.getElementById('navAvatarImg').src = user.avatar;
+            
+            // Update profile information
+            document.getElementById('avatarImg').src = user.avatar;
+            document.getElementById('profileName').textContent = user.name;
+            document.getElementById('profileAge').textContent = `${user.age} years old`;
+            document.getElementById('profileEmail').textContent = user.email;
+            document.getElementById('profileStudy').textContent = user.study;
+            document.getElementById('profileCivil').textContent = user.civil;
+            document.getElementById('profileUsername').textContent = user.username;
+            
+            // Update statistics
+            document.getElementById('loginCount').textContent = user.loginCount;
+            document.getElementById('daysActive').textContent = user.daysActive;
+            document.getElementById('profileViews').textContent = user.profileViews;
+            
+            // Animate statistics counting up
+            animateCounter('loginCount', user.loginCount);
+            animateCounter('daysActive', user.daysActive);
+            animateCounter('profileViews', user.profileViews);
+        }
+        
+        function animateCounter(elementId, targetValue) {
+            const element = document.getElementById(elementId);
+            const duration = 2000; // 2 seconds
+            const steps = 60;
+            const increment = targetValue / steps;
+            let current = 0;
+            
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= targetValue) {
+                    current = targetValue;
+                    clearInterval(timer);
+                }
+                element.textContent = Math.floor(current);
+            }, duration / steps);
+        }
+        
+        function logout() {
+            // Clear user session
+            localStorage.removeItem('currentUser');
+            
+            // Reset form
+            document.getElementById('loginForm').reset();
+            document.getElementById('message').innerHTML = '';
+            document.getElementById('sqlPreview').style.display = 'none';
+            
+            // Show login container and hide dashboard
+            document.getElementById('dashboard').classList.remove('active');
+            document.getElementById('loginContainer').style.display = 'block';
+            
+            // Show logout message
+            setTimeout(() => {
+                document.getElementById('message').innerHTML = '<div class="message success">✅ You have been logged out successfully.</div>';
+            }, 500);
+        }
+        
+        // Add navigation functionality
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Remove active class from all links
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                
+                // Add active class to clicked link
+                this.classList.add('active');
+                
+                // Here you could implement different dashboard views
+                console.log('Navigation clicked:', this.textContent);
+            });
+        });
+        
+        // Add hover effects to info cards
+        document.addEventListener('DOMContentLoaded', function() {
+            const infoCards = document.querySelectorAll('.info-card');
+            infoCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.15)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.boxShadow = 'none';
+                });
+            });
+        });
+        
+        // Prevent form submission on Enter key for better UX
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName !== 'BUTTON' && e.target.type !== 'submit') {
+                const form = document.getElementById('loginForm');
+                if (form.style.display !== 'none') {
+                    form.dispatchEvent(new Event('submit'));
+                }
+            }
+        });
+    </script>
 </body>
 </html>

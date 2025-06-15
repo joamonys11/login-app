@@ -1,5 +1,6 @@
 // server.js
 //require('dotenv').config();
+const DEMO_INJECTION = process.env.DEMO_INJECTION === 'true';
 const express = require('express');
 const mariadb = require('mariadb');
 const bcrypt = require('bcrypt');
@@ -10,7 +11,6 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3306;  
-const DEMO_INJECTION = process.env.DEMO_INJECTION === 'true';
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -87,10 +87,6 @@ async function initDatabase() {
   }
 }
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 app.post('/api/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   let conn;
@@ -100,9 +96,11 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     let sqlPreview;
 
     if (DEMO_INJECTION) {
+      // Simulate vulnerable SQL query (only for demo)
       sqlPreview = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
       users = await conn.query(sqlPreview);
     } else {
+      // Secure parameterized query (recommended)
       sqlPreview = 'SELECT * FROM users WHERE username = ? AND is_active = TRUE';
       users = await conn.query(sqlPreview, [username]);
     }
@@ -112,7 +110,9 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     }
 
     const user = users[0];
-    const valid = DEMO_INJECTION ? (user.username === username) : await bcrypt.compare(password, user.password_hash);
+    const valid = DEMO_INJECTION
+      ? (user.username === username) // Bypass hashing for demo mode
+      : await bcrypt.compare(password, user.password_hash);
 
     if (!valid) {
       return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
@@ -165,7 +165,7 @@ app.use((err, req, res, next) => {
 
 initDatabase().then(() => {
   app.listen(PORT, () => {
-    console.log(`🚀 Server running at http://localhost:${PORT}`);
-    console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
   });
 });
