@@ -584,39 +584,39 @@
             sqlPreview.style.display = 'block';
             
             // Simulate API delay
-            setTimeout(() => {
-                try {
-                    // Check credentials
-                    if (userData[username] && userData[username].password === password) {
-                        // Successful login
-                        messageDiv.innerHTML = '<div class="message success">✅ Login successful! Redirecting to dashboard...</div>';
-                        
-                        // Store user session
-                        const userSession = {
-                            username: username,
-                            ...userData[username]
-                        };
-                        localStorage.setItem('currentUser', JSON.stringify(userSession));
-                        
-                        // Redirect to dashboard after delay
-                        setTimeout(() => {
-                            loadUserProfile(userSession);
-                        }, 1500);
-                        
-                    } else {
-                        // Failed login
-                        messageDiv.innerHTML = '<div class="message error">❌ Invalid username or password. Please try again.</div>';
-                    }
-                } catch (error) {
-                    messageDiv.innerHTML = '<div class="message error">❌ An error occurred during login. Please try again.</div>';
-                    console.error('Login error:', error);
-                }
-                
-                // Reset button state
-                loginBtn.disabled = false;
-                loginText.style.display = 'block';
-                loading.style.display = 'none';
-            }, 2000);
+            try {
+    const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ username, password })
+    });
+
+    const data = await response.json();
+    
+    if (response.ok && data.success) {
+        messageDiv.innerHTML = '<div class="message success">✅ Login successful!</div>';
+        console.log('Logged in user:', data.user);
+
+        // Store session
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
+
+        // Load dashboard with user info
+        loadUserProfile(data.user);
+
+        sqlPreview.innerHTML = `<strong>Executed SQL:</strong><br>${data.sqlPreview}`;
+        sqlPreview.style.display = 'block';
+    } else {
+        messageDiv.innerHTML = `<div class="message error">❌ ${data.error || 'Login failed.'}</div>`;
+    }
+
+} catch (error) {
+    messageDiv.innerHTML = '<div class="message error">❌ Server error. Please try again.</div>';
+    console.error('Login error:', error);
+} finally {
+    loginBtn.disabled = false;
+    loginText.style.display = 'block';
+    loading.style.display = 'none';
+}
         });
         
         function loadUserProfile(user) {
