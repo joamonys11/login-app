@@ -110,9 +110,11 @@ users = await conn.query(sqlPreview);
     }
 
     const user = users[0];
-    const valid = DEMO_INJECTION || await bcrypt.compare(password, user.password_hash);
+    const valid = DEMO_INJECTION ? true : await bcrypt.compare(password, user.password_hash);
 
-   
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
+    }
 
     await conn.query('UPDATE users SET login_count = login_count + 1, last_login = NOW() WHERE id = ?', [user.id]);
     req.session.userId = user.id;
