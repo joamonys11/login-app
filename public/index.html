@@ -579,7 +579,7 @@
             sqlPreview.style.display = 'none';
             
             // Show SQL preview for educational purposes
-            const sqlQuery = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+            const sqlQuery = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
             sqlPreview.innerHTML = `<strong>Generated SQL Query:</strong><br>${sqlQuery}`;
             sqlPreview.style.display = 'block';
             
