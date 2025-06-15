@@ -96,12 +96,14 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     let sqlPreview;
 
    if (DEMO_INJECTION) {
-  sqlPreview = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
-//users = await conn.query(sqlPreview);
+sqlPreview = `SELECT * FROM users WHERE username = '${username}' AND is_active = TRUE`;
+users = await conn.query(sqlPreview);
+console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
 
 } else {
   sqlPreview = 'SELECT * FROM users WHERE username = ? AND is_active = TRUE';
   users = await conn.query(sqlPreview, [username]);
+  console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
 }
 
     if (!users.length) {
