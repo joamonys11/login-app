@@ -6,20 +6,23 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const DEMO_INJECTION = process.env.DEMO_INJECTION === 'true';
 
 const app = express();
-const PORT = process.env.PORT || 3306;
-const DEMO_INJECTION = process.env.DEMO_INJECTION === 'true';
+const PORT = process.env.PORT || 3306;  
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
+console.log('🔐 DEMO_INJECTION mode:', DEMO_INJECTION ? 'ENABLED' : 'DISABLED');
+console.log('📦 DB Host:', process.env.DB_HOST || 'localhost');
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 86400000 }
+  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 86400000 }
 }));
 
 const loginLimiter = rateLimit({
@@ -33,7 +36,9 @@ const pool = mariadb.createPool({
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'login_app',
-  connectionLimit: 10
+  connectionLimit: 10,
+  acquireTimeout: 60000,
+  timeout: 60000
 });
 
 async function initDatabase() {
