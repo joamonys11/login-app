@@ -3,7 +3,7 @@
 const DEMO_INJECTION = true;
 const express = require('express');
 const mariadb = require('mariadb');
-const bcrypt = require('bcrypt');
+//const bcrypt = require('bcrypt');
 const session = require('express-session');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
@@ -47,20 +47,20 @@ async function initDatabase() {
   try {
     conn = await pool.getConnection();
     await conn.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) UNIQUE,
-        password_hash VARCHAR(255),
-        name VARCHAR(100),
-        age INT,
-        email VARCHAR(100) UNIQUE,
-        study VARCHAR(255),
-        civil_status VARCHAR(100),
-        avatar VARCHAR(500),
-        login_count INT DEFAULT 0,
-        last_login TIMESTAMP NULL,
-        is_active BOOLEAN DEFAULT TRUE
-      )
+    CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) UNIQUE,
+    password VARCHAR(255),  -- Changed from password_hash
+    name VARCHAR(100),
+    age INT,
+    email VARCHAR(100) UNIQUE,
+    study VARCHAR(255),
+    civil_status VARCHAR(100),
+    avatar VARCHAR(500),
+    login_count INT DEFAULT 0,
+    last_login TIMESTAMP NULL,
+    is_active BOOLEAN DEFAULT TRUE
+  )
     `);
     const existing = await conn.query('SELECT COUNT(*) as count FROM users');
     if (existing[0].count === 0) {
@@ -71,12 +71,11 @@ async function initDatabase() {
           'https://randomuser.me/api/portraits/women/1.jpg']
       ];
       for (const [username, pass, name, age, email, study, civil, avatar] of users) {
-        const hash = await bcrypt.hash(pass, 10);
         await conn.query(
-          `INSERT INTO users (username, password_hash, name, age, email, study, civil_status, avatar)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [username, hash, name, age, email, study, civil, avatar]
-        );
+  `INSERT INTO users (username, password, name, age, email, study, civil_status, avatar)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  [username, pass, name, age, email, study, civil, avatar]
+);
       }
       console.log('✅ Demo users created');
     }
@@ -106,20 +105,12 @@ users = await conn.query(sqlPreview);
 }
 
 const user = users[0];
-let valid = false;
 
-if (DEMO_INJECTION) {
-    valid = true;
-} else if (user.password_hash) {
-    valid = await bcrypt.compare(password, user.password_hash);
-} else {
-    console.warn('⚠️ No password_hash in DB record:', user);
-}
-
+const valid = DEMO_INJECTION || user.password === password;
 
     await conn.query('UPDATE users SET login_count = login_count + 1, last_login = NOW() WHERE id = ?', [user.id]);
     req.session.userId = user.id;
-    delete user.password_hash;
+    delete user.password;
     res.json({ success: true, user, sqlPreview });
 
   } catch (err) {
