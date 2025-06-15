@@ -33,10 +33,10 @@ const loginLimiter = rateLimit({
 });
 
 const pool = mariadb.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'login_app',
+  host: process.env.DB_HOST || 'mysql-logindb.alwaysdata.net',
+  user: process.env.DB_USER || 'logindb',
+  password: process.env.DB_PASSWORD || '@Joe105411',
+  database: process.env.DB_NAME || 'logindb_app',
   connectionLimit: 10,
   acquireTimeout: 60000,
   timeout: 60000
@@ -106,7 +106,12 @@ users = await conn.query(sqlPreview);
 }
 
     const user = users[0];
-    const valid = DEMO_INJECTION ? true : await bcrypt.compare(password, user.password_hash);
+    let valid = false;
+if (DEMO_INJECTION) {
+  valid = true; // skip bcrypt check
+} else if (user.password_hash) {
+  valid = await bcrypt.compare(password, user.password_hash);
+}
 
     await conn.query('UPDATE users SET login_count = login_count + 1, last_login = NOW() WHERE id = ?', [user.id]);
     req.session.userId = user.id;
@@ -155,7 +160,6 @@ app.use((err, req, res, next) => {
 
 initDatabase().then(() => {
   app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
   console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
   });
 });
