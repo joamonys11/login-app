@@ -50,21 +50,16 @@ async function initDatabase() {
   try {
     conn = await pool.getConnection();
     await conn.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        name VARCHAR(100) NOT NULL,
-        age INT,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        study VARCHAR(200),
-        civil_status VARCHAR(50),
-        avatar VARCHAR(500),
-        login_count INT DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_login TIMESTAMP NULL,
-        is_active BOOLEAN DEFAULT TRUE
-      )`);
+  CREATE TABLE IF NOT EXISTS user_sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    session_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+
+
 
     const result = await conn.query('SELECT COUNT(*) as count FROM users');
     if (result[0].count === 0) {
@@ -128,7 +123,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
   try {
     conn = await pool.getConnection();
     const users = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
-
+    
     if (!users.length) {
       return res.json({ success: false, error: 'Invalid credentials' });
     }
