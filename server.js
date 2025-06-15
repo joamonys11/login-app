@@ -36,10 +36,10 @@ app.use(session({
 
 // MariaDB connection pool
 const pool = mariadb.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'login_app',
+  host: process.env.DB_HOST || 'mysql-logindb.alwaysdata.net',
+  user: process.env.DB_USER || 'logindb',
+  password: process.env.DB_PASSWORD || '@Joe105411',
+  database: process.env.DB_NAME || 'logindb_app',
   connectionLimit: 10,
   acquireTimeout: 60000,
   timeout: 60000
