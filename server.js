@@ -1,5 +1,3 @@
-// Full backend code for secure MariaDB login system using Express.js
-
 const express = require('express');
 const mariadb = require('mariadb');
 const bcrypt = require('bcrypt');
@@ -7,23 +5,29 @@ const session = require('express-session');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3306;
 
+// ✅ Trust Railway proxy to get correct IPs
+app.set('trust proxy', 1);
+
+// ✅ Connect to AlwaysData MariaDB
 const pool = mariadb.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: 3306, // ✅ REQUIRED for AlwaysData MariaDB
+  port: 3306,
   connectionLimit: 5
 });
 
+// ✅ Rate limiter to protect login endpoint
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  message: 'Too many login attempts, please try again later.',
+  message: 'Too many login attempts. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -40,30 +44,32 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24
+    maxAge: 1000 * 60 * 60 * 24,
   }
 }));
 
+// ✅ Init DB & Seed users if needed
 async function initDatabase() {
   let conn;
   try {
     conn = await pool.getConnection();
     await conn.query(`
-  CREATE TABLE IF NOT EXISTS user_sessions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    session_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  )`);
-
-
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        name VARCHAR(255),
+        age INT,
+        email VARCHAR(255),
+        study VARCHAR(255),
+        civil_status VARCHAR(255),
+        avatar TEXT,
+        login_count INT DEFAULT 0
+      )
+    `);
 
     const result = await conn.query('SELECT COUNT(*) as count FROM users');
-    if (result[0].count === 0) {
-      await createDefaultUsers(conn);
-    }
+    if (result[0].count === 0) await createDefaultUsers(conn);
 
     console.log('✅ Database initialized');
   } catch (err) {
@@ -76,39 +82,36 @@ async function initDatabase() {
 async function createDefaultUsers(conn) {
   const users = [
     {
-      username: 'admin', password: 'admin123', name: 'Alexandra Martinez', age: 28,
-      email: 'alexandra.martinez@email.com', study: 'Computer Science - Master\'s Degree',
-      civil_status: 'Single', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b9fd0d6f?w=150&h=150&fit=crop&crop=face'
+      username: 'admin', password: 'admin123', name: 'Admin User',
+      age: 35, email: 'admin@site.com', study: 'IT',
+      civil_status: 'Single', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin'
     },
     {
-      username: 'user', password: 'password', name: 'Michael Thompson', age: 35,
-      email: 'michael.thompson@email.com', study: 'Business Administration - MBA',
-      civil_status: 'Married', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
+      username: 'user', password: 'password', name: 'Normal User',
+      age: 28, email: 'user@site.com', study: 'Business',
+      civil_status: 'Single', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user'
     },
     {
-      username: 'john', password: 'john123', name: 'John Anderson', age: 24,
-      email: 'john.anderson@email.com', study: 'Mechanical Engineering - Bachelor\'s Degree',
-      civil_status: 'In a Relationship', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+      username: 'john', password: 'john123', name: 'John Smith',
+      age: 32, email: 'john@site.com', study: 'Engineering',
+      civil_status: 'Married', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john'
     }
   ];
 
-  for (const user of users) {
-    const hash = await bcrypt.hash(user.password, 12);
-    await conn.query(`
-      INSERT INTO users (username, password_hash, name, age, email, study, civil_status, avatar)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [user.username, hash, user.name, user.age, user.email, user.study, user.civil_status, user.avatar]);
+  for (const u of users) {
+    const hash = await bcrypt.hash(u.password, 12);
+    await conn.query(
+      `INSERT INTO users (username, password_hash, name, age, email, study, civil_status, avatar)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [u.username, hash, u.name, u.age, u.email, u.study, u.civil_status, u.avatar]
+    );
   }
-
-  console.log('✅ Default users created');
+  console.log('✅ Seed users created');
 }
 
 function requireAuth(req, res, next) {
-  if (req.session && req.session.userId) {
-    next();
-  } else {
-    res.status(401).json({ error: 'Authentication required' });
-  }
+  if (req.session && req.session.userId) return next();
+  return res.status(401).json({ error: 'Auth required' });
 }
 
 app.get('/', (req, res) => {
@@ -120,21 +123,25 @@ app.post('/api/login', loginLimiter, async (req, res) => {
   let conn;
 
   try {
+    if (!username || !password) {
+      return res.json({ success: false, error: 'Missing username or password' });
+    }
+
     conn = await pool.getConnection();
-    const users = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
-    
-    if (!users.length) {
+    const rows = await conn.query('SELECT * FROM users WHERE username = ?', [username]);
+
+    if (rows.length === 0 || !rows[0].password_hash) {
       return res.json({ success: false, error: 'Invalid credentials' });
     }
 
-    const user = users[0];
-    const match = await bcrypt.compare(password, user.password_hash);
+    const user = rows[0];
+    const valid = await bcrypt.compare(password, user.password_hash);
 
-    if (!match) {
-      return res.json({ success: false, error: 'Invalid credentials' });
-    }
+    if (!valid) return res.json({ success: false, error: 'Invalid credentials' });
 
+    // Login successful
     req.session.userId = user.id;
+
     res.json({
       success: true,
       user: {
@@ -146,10 +153,11 @@ app.post('/api/login', loginLimiter, async (req, res) => {
         civil_status: user.civil_status,
         avatar: user.avatar,
         login_count: user.login_count,
-        days_active: 0,
-        profile_views: 0
+        days_active: 5,
+        profile_views: 300
       }
     });
+
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ success: false, error: 'Server error' });
@@ -162,24 +170,14 @@ app.get('/api/profile', requireAuth, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const rows = await conn.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
 
-    const users = await conn.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-    if (!users.length) return res.status(404).json({ error: 'User not found' });
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
 
-    const stats = await conn.query('SELECT COUNT(*) as total_sessions, MIN(session_start) as first_login FROM user_sessions WHERE user_id = ?', [req.session.userId]);
-    const daysActive = stats[0].first_login ? Math.floor((Date.now() - new Date(stats[0].first_login).getTime()) / (1000 * 60 * 60 * 24)) : 0;
-
-    res.json({
-      user: users[0],
-      stats: {
-        totalSessions: stats[0].total_sessions,
-        daysActive,
-        profileViews: Math.floor(Math.random() * 150) + 30
-      }
-    });
+    res.json({ user: rows[0] });
   } catch (err) {
     console.error('Profile error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -192,26 +190,15 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
-app.get('/api/auth-status', (req, res) => {
-  res.json({ authenticated: !!req.session?.userId });
-});
-
+// ✅ Global error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Something went wrong' });
 });
 
+// ✅ Start server
 initDatabase().then(() => {
   app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
   });
-}).catch(err => {
-  console.error('Failed to start:', err);
-  process.exit(1);
-});
-
-process.on('SIGINT', async () => {
-  console.log('\n🛑 Gracefully shutting down...');
-  await pool.end();
-  process.exit(0);
 });
