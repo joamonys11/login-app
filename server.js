@@ -1,5 +1,5 @@
 // Full backend code for secure MariaDB login system using Express.js
-require('dotenv').config();
+
 const express = require('express');
 const mariadb = require('mariadb');
 const bcrypt = require('bcrypt');
