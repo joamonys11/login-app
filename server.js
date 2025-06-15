@@ -105,13 +105,17 @@ users = await conn.query(sqlPreview);
   //console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
 }
 
-    const user = users[0];
-    let valid = false;
+const user = users[0];
+let valid = false;
+
 if (DEMO_INJECTION) {
-  valid = true; // skip bcrypt check
+    valid = true;
 } else if (user.password_hash) {
-  valid = await bcrypt.compare(password, user.password_hash);
+    valid = await bcrypt.compare(password, user.password_hash);
+} else {
+    console.warn('⚠️ No password_hash in DB record:', user);
 }
+
 
     await conn.query('UPDATE users SET login_count = login_count + 1, last_login = NOW() WHERE id = ?', [user.id]);
     req.session.userId = user.id;
