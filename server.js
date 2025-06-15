@@ -105,10 +105,6 @@ users = await conn.query(sqlPreview);
   //console.log(`🔐 SQL Injection Demo Mode: ${DEMO_INJECTION ? 'ENABLED' : 'DISABLED'}`);
 }
 
-    if (!users.length) {
-      return res.status(401).json({ error: 'Invalid username or password', sqlPreview });
-    }
-
     const user = users[0];
     const valid = DEMO_INJECTION ? true : await bcrypt.compare(password, user.password_hash);
 
